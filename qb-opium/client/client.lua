@@ -1,141 +1,126 @@
-QBCore = nil
 local QBCore = exports['qb-core']:GetCoreObject()
+
 isLoggedIn = true
 
 local menuOpen = false
 local wasOpen = false
-
-Citizen.CreateThread(function() 
-    while true do
-        Citizen.Wait(10)
-        if QBCore == nil then
-            TriggerEvent("QBCore:GetObject", function(obj) QBCore = obj end)    
-            Citizen.Wait(200)
-        end
-    end
-end)
-
-local spawnedWeed = 0
-local weedPlants = {}
+local spawnedOpium = 0
+local opiumPlants = {}
 
 local isPickingUp, isProcessing, isProcessing2 = false, false, false
 
-RegisterNetEvent("QBCore:Client:OnPlayerLoaded")
-AddEventHandler("QBCore:Client:OnPlayerLoaded", function()
-	CheckCoords2()
-	Citizen.Wait(1000)
+RegisterNetEvent("QBCore:Client:OnPlayerLoaded", function()
+	CheckCoords()
+	Wait(1000)
 	local coords = GetEntityCoords(PlayerPedId())
-	if GetDistanceBetweenCoords(coords, Config.CircleZones.PickupOpium.coords, true) < 1000 then
-		SpawnWeedPlants2()
+	if GetDistanceBetweenCoords(coords, Config.CircleZones.OpiumField.coords, true) < 1000 then
+		SpawnOpiumPlants()
 	end
 end)
 
-function CheckCoords2()
-	Citizen.CreateThread(function()
+function CheckCoords()
+	CreateThread(function()
 		while true do
 			local coords = GetEntityCoords(PlayerPedId())
-			if GetDistanceBetweenCoords(coords, Config.CircleZones.PickupOpium.coords, true) < 1000 then
-				SpawnWeedPlants2()
+			if GetDistanceBetweenCoords(coords, Config.CircleZones.OpiumField.coords, true) < 1000 then
+				SpawnOpiumPlants()
 			end
-			Citizen.Wait(1 * 60000)
+			Wait(1 * 60000)
 		end
 	end)
 end
 
 AddEventHandler('onResourceStart', function(resource)
 	if resource == GetCurrentResourceName() then
-		CheckCoords2()
+		CheckCoords()
 	end
 end)
-Citizen.CreateThread(function()--weed
+
+CreateThread(function()--Opium
 	while true do
-		Citizen.Wait(0)
+		Wait(10)
 
 		local playerPed = PlayerPedId()
 		local coords = GetEntityCoords(playerPed)
 		local nearbyObject, nearbyID
-		
-		
-		for i=1, #weedPlants, 1 do
-			if GetDistanceBetweenCoords(coords, GetEntityCoords(weedPlants[i]), false) < 1 then
-				nearbyObject, nearbyID = weedPlants[i], i
+
+
+		for i=1, #opiumPlants, 1 do
+			if GetDistanceBetweenCoords(coords, GetEntityCoords(opiumPlants[i]), false) < 1 then
+				nearbyObject, nearbyID = opiumPlants[i], i
 			end
 		end
 
 		if nearbyObject and IsPedOnFoot(playerPed) then
 
 			if not isPickingUp then
-				QBCore.Functions.Draw2DText(0.5, 0.88, 'Press ~g~[E]~w~ to Pick up Some Opium ', 0.4)
+				QBCore.Functions.Draw2DText(0.5, 0.88, 'Press ~g~[E]~w~ to pickup Opium', 0.4)
 			end
 
 			if IsControlJustReleased(0, 38) and not isPickingUp then
 				isPickingUp = true
 				TaskStartScenarioInPlace(playerPed, 'world_human_gardener_plant', 0, false)
-				--PROP_HUMAN_BUM_BIN animazione
-				--prop_cs_cardbox_01 oggetto di spawn  prop_plant_01a
-				QBCore.Functions.Progressbar("search_register", "Picking Up Some Opium..", 6500, false, true, {
+				QBCore.Functions.Progressbar("search_register", "Picking up Opium..", 3000, false, true, {
 					disableMovement = true,
 					disableCarMovement = true,
 					disableMouse = false,
 					disableCombat = true,
 					disableInventory = true,
 				}, {}, {}, {}, function() -- Done
-					ClearPedTasks(GetPlayerPed(-1))
+					ClearPedTasks(PlayerPedId())
 					QBCore.Functions.DeleteObject(nearbyObject)
 
-					table.remove(weedPlants, nearbyID)
-					spawnedWeed = spawnedWeed - 1
+					table.remove(opiumPlants, nearbyID)
+					spawnedOpium = spawnedOpium - 1
 
-					TriggerServerEvent('qb-opium:pickedUpOpium')
+					TriggerServerEvent('qb-opiumpicking:pickedUpOpium')
 				end, function()
-					ClearPedTasks(GetPlayerPed(-1))
-				end) -- Cancel
+					ClearPedTasks(PlayerPedId())
+				end)
 
 				isPickingUp = false
 			end
 		else
-			Citizen.Wait(500)
+			Wait(500)
 		end
 	end
 end)
 
-
-AddEventHandler('onResourceStop', function(resource) --weedPlants
+AddEventHandler('onResourceStop', function(resource)
 	if resource == GetCurrentResourceName() then
-		for k, v in pairs(weedPlants) do
-			QBCore.Functions.DeleteObject(v)
+		for k, v in pairs(opiumPlants) do
+			QBCore.Functions.DeleteObject(nearbyObject)
 		end
 	end
 end)
-function SpawnWeedPlants2() --This spawns in the Weed plants, 
-	while spawnedWeed < 20 do
-		Citizen.Wait(1)
-		local weedCoords = GenerateWeedCoords2()
---prop_barrel_01a  prop_plant_01a
-		QBCore.Functions.SpawnLocalObject('prop_plant_fern_02a', weedCoords, function(obj) --- change this prop to whatever plant you are trying to use 
+function SpawnOpiumPlants()
+	while spawnedOpium < 20 do
+		Wait(1)
+		local opiumCoords = GenerateOpiumCoords()
+
+		QBCore.Functions.SpawnLocalObject('prop_plant_fern_02a', opiumCoords, function(obj)
 			PlaceObjectOnGroundProperly(obj)
 			FreezeEntityPosition(obj, true)
-			
 
-			table.insert(weedPlants, obj)
-			spawnedWeed = spawnedWeed + 1
+
+			table.insert(opiumPlants, obj)
+			spawnedOpium = spawnedOpium + 1
 		end)
 	end
-	Citizen.Wait(45 * 60000)
+	Wait(45 * 60000)
 end
 
-
-function ValidateWeedCoord(plantCoord) --This is a simple validation checker
-	if spawnedWeed > 0 then
+function ValidateOpiumCoord(plantCoord)
+	if spawnedOpium > 0 then
 		local validate = true
 
-		for k, v in pairs(weedPlants) do
+		for k, v in pairs(opiumPlants) do
 			if GetDistanceBetweenCoords(plantCoord, GetEntityCoords(v), true) < 5 then
 				validate = false
 			end
 		end
 
-		if GetDistanceBetweenCoords(plantCoord, Config.CircleZones.PickupOpium.coords, false) > 50 then
+		if GetDistanceBetweenCoords(plantCoord, Config.CircleZones.OpiumField.coords, false) > 50 then
 			validate = false
 		end
 
@@ -145,33 +130,33 @@ function ValidateWeedCoord(plantCoord) --This is a simple validation checker
 	end
 end
 
-function GenerateWeedCoords2() --This spawns the weed plants at the designated location
+function GenerateOpiumCoords()
 	while true do
-		Citizen.Wait(1)
+		Wait(1)
 
-		local weedCoordX, weedCoordY
+		local opiumCoordX, opiumCoordY
 
 		math.randomseed(GetGameTimer())
 		local modX = math.random(-10, 10)
 
-		Citizen.Wait(100)
+		Wait(100)
 
 		math.randomseed(GetGameTimer())
 		local modY = math.random(-10, 10)
 
-		weedCoordX = Config.CircleZones.PickupOpium.coords.x + modX
-		weedCoordY = Config.CircleZones.PickupOpium.coords.y + modY
+		opiumCoordX = Config.CircleZones.OpiumField.coords.x + modX
+		opiumCoordY = Config.CircleZones.OpiumField.coords.y + modY
 
-		local coordZ = GetCoordZWeed(weedCoordX, weedCoordY)
-		local coord = vector3(weedCoordX, weedCoordY, coordZ)
+		local coordZ = GetCoordZOpium(opiumCoordX, opiumCoordY)
+		local coord = vector3(opiumCoordX, opiumCoordY, coordZ)
 
-		if ValidateWeedCoord(coord) then
+		if ValidateOpiumCoord(coord) then
 			return coord
 		end
 	end
 end
 
-function GetCoordZWeed(x, y) ---- Set the coordinates relative to the heights near where you want the circle spawning
+function GetCoordZOpium(x, y)
 	local groundCheckHeights = { 31.0, 32.0, 33.0, 34.0, 35.0, 36.0, 37.0, 38.0, 39.0, 40.0, 50.0 }
 
 	for i, height in ipairs(groundCheckHeights) do
@@ -185,162 +170,179 @@ function GetCoordZWeed(x, y) ---- Set the coordinates relative to the heights ne
 	return 31.85
 end
 
-Citizen.CreateThread(function() --- check that makes sure you have the materials needed to process
+CreateThread(function()
 	while QBCore == nil do
-		Citizen.Wait(200)
+		Wait(200)
 	end
 	while true do
-		Citizen.Wait(0)
+		Wait(10)
 		local playerPed = PlayerPedId()
 		local coords = GetEntityCoords(playerPed)
 
-		if GetDistanceBetweenCoords(coords, Config.CircleZones.ProcessOpium.coords, true) < 1 then
-			DrawMarker(2, Config.CircleZones.ProcessOpium.coords.x, Config.CircleZones.ProcessOpium.coords.y, Config.CircleZones.ProcessOpium.coords.z - 0.2 , 0, 0, 0, 0, 0, 0, 0.3, 0.2, 0.15, 255, 0, 0, 100, 0, 0, 0, true, 0, 0, 0)
+		if GetDistanceBetweenCoords(coords, Config.CircleZones.OpiumProcessing.coords, true) < 5 then
+			DrawMarker(2, Config.CircleZones.OpiumProcessing.coords.x, Config.CircleZones.OpiumProcessing.coords.y, Config.CircleZones.OpiumProcessing.coords.z - 0.2 , 0, 0, 0, 0, 0, 0, 0.3, 0.2, 0.15, 255, 0, 0, 100, 0, 0, 0, true, 0, 0, 0)
 
-			
-			if not isProcessing then
-				QBCore.Functions.DrawText3D(Config.CircleZones.ProcessOpium.coords.x, Config.CircleZones.ProcessOpium.coords.y, Config.CircleZones.ProcessOpium.coords.z, 'Press ~g~[ E ]~w~ to Process Opium')
+
+			if not isProcessing and GetDistanceBetweenCoords(coords, Config.CircleZones.OpiumProcessing.coords, true) <1 then
+				QBCore.Functions.DrawText3D(Config.CircleZones.OpiumProcessing.coords.x, Config.CircleZones.OpiumProcessing.coords.y, Config.CircleZones.OpiumProcessing.coords.z, 'Press ~g~[E]~w~ to Process')
 			end
 
 			if IsControlJustReleased(0, 38) and not isProcessing then
+				local hasBag = false
 				local s1 = false
-				local hasWeed = false
+				local hasOpium = false
+				local s2 = false
 
 				QBCore.Functions.TriggerCallback('QBCore:HasItem', function(result)
-					hasWeed = result
+					hasOpium = result
 					s1 = true
 				end, 'opium')
-				
+
 				while(not s1) do
-					Citizen.Wait(100)
+					Wait(100)
+				end
+				Wait(100)
+				QBCore.Functions.TriggerCallback('QBCore:HasItem', function(result)
+					hasBag = result
+					s2 = true
+				end, 'plastic_baggie')
+
+				while(not s2) do
+					Wait(100)
 				end
 
-				if (hasWeed) then
-					Processweed3()
-				elseif (hasWeed) then
-					QBCore.Functions.Notify('You dont have Acid Bottles.', 'error')
+				if (hasOpium and hasBag) then
+					Processopium()
+				elseif (hasOpium) then
+					QBCore.Functions.Notify('You dont have enough plastic bags.', 'error')
+				elseif (hasBag) then
+					QBCore.Functions.Notify('You dont have enough opium.', 'error')
+				else
+					QBCore.Functions.Notify('You dont have enough opium and plastic bags.', 'error')
 				end
 			end
 		else
-			Citizen.Wait(500)
+			Wait(500)
 		end
 	end
 end)
 
-
-function Processweed3()  -- simple animations to loop while process is taking place
+function Processopium()
 	isProcessing = true
 	local playerPed = PlayerPedId()
 
-	--
 	TaskStartScenarioInPlace(playerPed, "PROP_HUMAN_PARKING_METER", 0, true)
 	SetEntityHeading(PlayerPedId(), 108.06254)
 
-	QBCore.Functions.Progressbar("search_register", "Packing Opium..", 15000, false, true, {
+	QBCore.Functions.Progressbar("search_register", "Trying to Process..", 30000, false, true, {
 		disableMovement = true,
 		disableCarMovement = true,
 		disableMouse = false,
 		disableCombat = true,
 		disableInventory = true,
 	}, {}, {}, {}, function()
-	 TriggerServerEvent('qb-opium:processopium') -- Done
+	 TriggerServerEvent('qb-opiumpicking:processopium')
 
-		local timeLeft = Config.Delays.ProcessOpium / 1000
+		local timeLeft = Config.Delays.OpiumProcessing / 1000
 
 		while timeLeft > 0 do
-			Citizen.Wait(1000)
+			Wait(1000)
 			timeLeft = timeLeft - 1
 
-			if GetDistanceBetweenCoords(GetEntityCoords(playerPed), Config.CircleZones.ProcessOpium.coords, false) > 4 then
-				TriggerServerEvent('qb-opium:cancelProcessing3')
+			if GetDistanceBetweenCoords(GetEntityCoords(playerPed), Config.CircleZones.OpiumProcessing.coords, false) > 4 then
+				TriggerServerEvent('qb-opiumpicking:cancelProcessing')
 				break
 			end
 		end
-		ClearPedTasks(GetPlayerPed(-1))
+		ClearPedTasks(PlayerPedId())
 	end, function()
-		ClearPedTasks(GetPlayerPed(-1))
+		ClearPedTasks(PlayerPedId())
 	end) -- Cancel
-		
-	
+
 	isProcessing = false
 end
 
-
-Citizen.CreateThread(function() --- check that makes sure you have the materials needed to process
+CreateThread(function()
 	while QBCore == nil do
-		Citizen.Wait(200)
+		Wait(200)
 	end
 	while true do
-		Citizen.Wait(0)
+		Wait(10)
 		local playerPed = PlayerPedId()
 		local coords = GetEntityCoords(playerPed)
 
-		if GetDistanceBetweenCoords(coords, Config.CircleZones.DrugDealer.coords, true) < 1 then
+		if GetDistanceBetweenCoords(coords, Config.CircleZones.DrugDealer.coords, true) < 5 then
 			DrawMarker(2, Config.CircleZones.DrugDealer.coords.x, Config.CircleZones.DrugDealer.coords.y, Config.CircleZones.DrugDealer.coords.z - 0.2 , 0, 0, 0, 0, 0, 0, 0.3, 0.2, 0.15, 255, 0, 0, 100, 0, 0, 0, true, 0, 0, 0)
 
-			
-			if not isProcessing2 then
-				QBCore.Functions.DrawText3D(Config.CircleZones.DrugDealer.coords.x, Config.CircleZones.DrugDealer.coords.y, Config.CircleZones.DrugDealer.coords.z, 'Press ~g~[ E ]~w~ to Sell')
+
+			if not isProcessing2 and GetDistanceBetweenCoords(coords, Config.CircleZones.DrugDealer.coords, true) <1 then
+				QBCore.Functions.DrawText3D(Config.CircleZones.DrugDealer.coords.x, Config.CircleZones.DrugDealer.coords.y, Config.CircleZones.DrugDealer.coords.z, 'Press ~g~[E]~w~ to Sell')
 			end
 
 			if IsControlJustReleased(0, 38) and not isProcessing2 then
-	            local s1 = false
-				local hasWeed = false
+				local hasOpium2 = false
+				local hasBag2 = false
+				local s3 = false
 
 				QBCore.Functions.TriggerCallback('QBCore:HasItem', function(result)
-					hasWeed = result
-					s1 = true
+					hasOpium2 = result
+					hasBag2 = result
+					s3 = true
+
 				end, 'heroin')
-				
-				while(not s1) do
-					Citizen.Wait(100)
+
+				while(not s3) do
+					Wait(100)
 				end
 
-				if (hasWeed) then
-					SellDrug3()
-				elseif (hasWeed) then
-					QBCore.Functions.Notify('You dont have Heroin.', 'error')
+
+				if (hasOpium2) then
+					SellDrug()
+				elseif (hasOpium2) then
+					QBCore.Functions.Notify('You dont have enough plastic bags.', 'error')
+				elseif (hasBag2) then
+					QBCore.Functions.Notify('You dont have enough opium.', 'error')
+				else
+					QBCore.Functions.Notify('You dont have enough heroin bags to sell.', 'error')
 				end
 			end
 		else
-			Citizen.Wait(500)
+			Wait(500)
 		end
 	end
 end)
 
-function SellDrug3()  -- simple animations to loop while process is taking place
+function SellDrug()
 	isProcessing2 = true
 	local playerPed = PlayerPedId()
 
 	--
-	TaskStartScenarioInPlace(playerPed, "CODE_HUMAN_MEDIC_TEND_TO_DEAD", 0, true)
+	TaskStartScenarioInPlace(playerPed, "PROP_HUMAN_PARKING_METER", 0, true)
 	SetEntityHeading(PlayerPedId(), 108.06254)
 
-	QBCore.Functions.Progressbar("search_register", "Selling Heroin..", 15000, false, true, {
+	QBCore.Functions.Progressbar("search_register", "Trying to Sell..", 1500, false, true, {
 		disableMovement = true,
 		disableCarMovement = true,
 		disableMouse = false,
 		disableCombat = true,
-		disableInventory = false,
+		disableInventory = true,
 	}, {}, {}, {}, function()
-	 TriggerServerEvent('qb-opium:selld2') -- Done
+	 TriggerServerEvent('qb-opiumpicking:selld')
 
-		local timeLeft = Config.Delays.ProcessOpium / 1000
+		local timeLeft = Config.Delays.OpiumProcessing / 1000
 
 		while timeLeft > 0 do
-			Citizen.Wait(500)
+			Wait(500)
 			timeLeft = timeLeft - 1
 
-			if GetDistanceBetweenCoords(GetEntityCoords(playerPed), Config.CircleZones.ProcessOpium.coords, false) > 4 then
-				--TriggerServerEvent('qb-opium:cancelProcessing3')
+			if GetDistanceBetweenCoords(GetEntityCoords(playerPed), Config.CircleZones.OpiumProcessing.coords, false) > 4 then
 				break
 			end
 		end
-		ClearPedTasks(GetPlayerPed(-1))
+		ClearPedTasks(PlayerPedId())
 	end, function()
-		ClearPedTasks(GetPlayerPed(-1))
+		ClearPedTasks(PlayerPedId())
 	end) -- Cancel
-		
-	
+
 	isProcessing2 = false
 end
